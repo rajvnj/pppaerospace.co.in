@@ -1,0 +1,46 @@
+body{
+font-family: Arial;
+margin:0;
+background:#f9f9f9;
+}
+
+header{
+background:#ff6b6b;
+color:white;
+padding:20px;
+text-align:center;
+}
+
+nav a{
+color:white;
+margin:10px;
+text-decoration:none;
+}
+
+.hero{
+padding:80px;
+text-align:center;
+background:#ffd93d;
+}
+
+.program{
+background:white;
+padding:20px;
+margin:20px;
+border-radius:10px;
+}
+
+button{
+background:#4d96ff;
+color:white;
+padding:10px 20px;
+border:none;
+border-radius:5px;
+}
+
+footer{
+background:#333;
+color:white;
+padding:20px;
+text-align:center;
+}
