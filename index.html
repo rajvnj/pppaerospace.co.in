@@ -17,44 +17,200 @@
     </style>
 </head>
 
+
 <script>
-  function openEnquireModal() {
-    document.getElementById('enquireModal').classList.remove('hidden');
-    document.getElementById('enquireModal').classList.add('flex');
+  // ===== Modal Elements =====
+  const modal = document.getElementById('enquireModal');
+  const panel = document.getElementById('enquirePanel');
+  const closeBtn = document.getElementById('enquireCloseBtn');
+  const iframe = document.getElementById('enquireIframe');
+
+  let lastFocusedElement = null;
+
+  // ===== Helpers =====
+  function disableBodyScroll() {
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+  }
+  function enableBodyScroll() {
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+  }
+
+  function trapFocus(e) {
+    const focusables = panel.querySelectorAll(
+      'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])'
+    );
+    const focusable = Array.prototype.slice.call(focusables).filter(el => el.offsetParent !== null);
+    if (!focusable.length) return;
+
+    const first = focusable[0];
+    const last  = focusable[focusable.length - 1];
+
+    if (e.key === 'Tab') {
+      if (e.shiftKey && document.activeElement === first) {
+        last.focus();
+        e.preventDefault();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        first.focus();
+        e.preventDefault();
+      }
+    }
+  }
+
+  function pushToDataLayer(eventName, extra = {}) {
+    try {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: eventName,
+        component: 'enquiry_modal',
+        timestamp: new Date().toISOString(),
+        ...extra,
+      });
+    } catch (e) {
+      // fail silently
+    }
+  }
+
+  // ===== Open/Close =====
+  function openEnquireModal({ auto = false } = {}) {
+    if (!modal || !panel) return;
+
+    lastFocusedElement = document.activeElement;
+
+    // Show modal, then animate panel
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    requestAnimationFrame(() => {
+      panel.classList.remove('opacity-0', 'scale-95');
+      panel.classList.add('opacity-100', 'scale-100');
+    });
+
+    // Accessibility
+    modal.setAttribute('aria-hidden', 'false');
+
+    // Focus management
+    closeBtn?.focus();
+    document.addEventListener('keydown', onKeydown);
+    document.addEventListener('keydown', trapFocus);
+
+    // No scroll
+    disableBodyScroll();
+
+    // Tracking
+    pushToDataLayer(auto ? 'enquiry_modal_auto_open' : 'enquiry_modal_open');
   }
 
   function closeEnquireModal() {
-    document.getElementById('enquireModal').classList.add('hidden');
-    document.getElementById('enquireModal').classList.remove('flex');
+    if (!modal || !panel) return;
+
+    // Animate out
+    panel.classList.remove('opacity-100', 'scale-100');
+    panel.classList.add('opacity-0', 'scale-95');
+
+    // After animation, hide
+    setTimeout(() => {
+      modal.classList.remove('flex');
+      modal.classList.add('hidden');
+
+      // Reset iframe if you want a clean form each time (optional):
+      // iframe.src = iframe.src;
+
+      // Accessibility
+      modal.setAttribute('aria-hidden', 'true');
+
+      // Remove listeners
+      document.removeEventListener('keydown', onKeydown);
+      document.removeEventListener('keydown', trapFocus);
+
+      // Restore scroll
+      enableBodyScroll();
+
+      // Restore focus
+      if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+        lastFocusedElement.focus();
+      }
+    }, 180);
+
+    // Tracking
+    pushToDataLayer('enquiry_modal_close');
   }
 
-  // Close when clicking outside the modal
-  document.getElementById('enquireModal').addEventListener('click', function(e) {
-    if (e.target === this) closeEnquireModal();
+  function onKeydown(e) {
+    if (e.key === 'Escape') {
+      closeEnquireModal();
+    }
+  }
+
+  // Background click to close
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      closeEnquireModal();
+    }
   });
+
+  // ===== Optional: Auto open after N seconds =====
+  // Uncomment to enable (e.g., 10 seconds)
+  // window.addEventListener('load', () => {
+  //   setTimeout(() => openEnquireModal({ auto: true }), 10000);
+  // });
+
+  // ===== Optional: Track submit via postMessage =====
+  // If the embedded form can postMessage on submit, listen for it:
+  // window.addEventListener('message', (e) => {
+  //   // Only proceed if you can verify origin, e.g.:
+  //   // if (e.origin !== 'https://podarprepl.com') return;
+  //   if (e.data === 'enquiry_form_submitted') {
+  //     pushToDataLayer('enquiry_form_submitted');
+  //     // closeEnquireModal(); // if you want to close after submit
+  //   }
+  // });
+
+  // Expose open/close globally for the button
+  window.openEnquireModal = openEnquireModal;
+  window.closeEnquireModal = closeEnquireModal;
 </script>
 
+
+
 <!-- Enquiry Modal -->
-<div id="enquireModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[999]">
-  
-  <div class="bg-white w-full max-w-3xl h-[90vh] rounded-xl shadow-2xl relative overflow-hidden">
+<div id="enquireModal"
+     class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[999]"
+     aria-hidden="true"
+     role="dialog"
+     aria-modal="true">
 
-    <!-- Close Button -->
-    <button onclick="closeEnquireModal()" 
-            class="absolute top-3 right-3 bg-yellow-400 text-blue-900 font-bold w-8 h-8 rounded-full flex items-center justify-center hover:brightness-110 z-10">
-      ✕
-    </button>
+  <!-- Modal Panel -->
+  <div id="enquirePanel"
+       class="bg-white w-[95vw] max-w-3xl h-[90vh] rounded-2xl shadow-2xl relative overflow-hidden
+              transform transition-all duration-200 ease-out scale-95 opacity-0">
 
-    <!-- Iframe -->
-    <iframe 
-      src="https://pppaerospace.co.in/enquiry.html"
-      class="w-full h-full border-0"
-      allowfullscreen
-      loading="lazy">
-    </iframe>
+    <!-- Header -->
+    <div class="flex items-center justify-between px-5 py-3 border-b">
+      <h2 id="enquireTitle" class="text-lg font-bold text-blue-900">Enquire Now</h2>
 
+      <button id="enquireCloseBtn"
+              type="button"
+              class="bg-yellow-400 text-blue-900 font-bold w-8 h-8 rounded-full flex items-center justify-center hover:brightness-110"
+              aria-label="Close enquiry form"
+              onclick="closeEnquireModal()">
+        ✕
+      </button>
+    </div>
+
+    <!-- Iframe container -->
+    <div class="w-full h-[calc(90vh-56px)] bg-gray-50">
+      <!-- Load the live form in an iframe -->
+      <iframe id="enquireIframe"
+              title="Podar Prep Enquiry Form"
+              src="https://podarprepl.com/enquiry"
+              class="w-full h-full border-0"
+              referrerpolicy="no-referrer-when-downgrade"
+              loading="lazy"></iframe>
+    </div>
   </div>
 </div>
+
 
 <body class="font-sans text-gray-800">
 
@@ -90,10 +246,12 @@
 </nav>
 
 
-        <button onclick="openEnquireModal()" 
+
+        <button onclick="openEnquireModal()"
                 class="yellow-accent text-blue-900 px-6 py-2 rounded-full font-bold hover:brightness-110 transition shadow-md">
           Enquire Now
         </button>
+
 
         </div>
     </header>
